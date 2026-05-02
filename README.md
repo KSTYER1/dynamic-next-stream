@@ -1,59 +1,90 @@
-# OBS Plugin Template
+# Dynamic Next Stream
 
-## Introduction
+Dynamic Next Stream is a third-party native dock plugin for OBS Studio. It
+maintains a weekly stream schedule and writes the next upcoming stream entries
+to a selected text source.
 
-The plugin template is meant to be used as a starting point for OBS Studio plugin development. It includes:
+The plugin is designed for streamers who want an always-current "next stream"
+text overlay without editing the text source manually before every show.
 
-* Boilerplate plugin source code
-* A CMake project file
-* GitHub Actions workflows and repository actions
+## Features
 
-## Supported Build Environments
+- Dock UI for configuring stream days, times, categories, and output format.
+- Odd/even calendar week schedules for alternating weekly programs.
+- Live preview with one-click copy.
+- Automatic updates on a configurable interval.
+- Direct output to OBS text sources.
+- Optional file output for use outside OBS.
+- German and English UI text.
 
-| Platform  | Tool   |
-|-----------|--------|
-| Windows   | Visual Studio 17 2022 |
-| macOS     | XCode 16.0 |
-| Windows, macOS  | CMake 3.30.5 |
-| Ubuntu 24.04 | CMake 3.28.3 |
-| Ubuntu 24.04 | `ninja-build` |
-| Ubuntu 24.04 | `pkg-config`
-| Ubuntu 24.04 | `build-essential` |
+## Requirements
 
-## Quick Start
+- OBS Studio 30.x, 31.x, or 32.x
+- Windows 64-bit release build
+- Qt 6, provided by OBS Studio
 
-An absolute bare-bones [Quick Start Guide](https://github.com/obsproject/obs-plugintemplate/wiki/Quick-Start-Guide) is available in the wiki.
+## Installation
 
-## Documentation
+Download the release archive and extract or copy its contents into your OBS
+Studio installation directory.
 
-All documentation can be found in the [Plugin Template Wiki](https://github.com/obsproject/obs-plugintemplate/wiki).
+The final layout should include:
 
-Suggested reading to get up and running:
+```text
+obs-plugins/64bit/dynamic-next-stream.dll
+data/obs-plugins/dynamic-next-stream/locale/en-US.ini
+data/obs-plugins/dynamic-next-stream/locale/de-DE.ini
+```
 
-* [Getting started](https://github.com/obsproject/obs-plugintemplate/wiki/Getting-Started)
-* [Build system requirements](https://github.com/obsproject/obs-plugintemplate/wiki/Build-System-Requirements)
-* [Build system options](https://github.com/obsproject/obs-plugintemplate/wiki/CMake-Build-System-Options)
+Restart OBS after installation. The dock appears under:
 
-## GitHub Actions & CI
+```text
+View -> Docks -> Next Stream
+```
 
-Default GitHub Actions workflows are available for the following repository actions:
+## Basic Usage
 
-* `push`: Run for commits or tags pushed to `master` or `main` branches.
-* `pr-pull`: Run when a Pull Request has been pushed or synchronized.
-* `dispatch`: Run when triggered by the workflow dispatch in GitHub's user interface.
-* `build-project`: Builds the actual project and is triggered by other workflows.
-* `check-format`: Checks CMake and plugin source code formatting and is triggered by other workflows.
+1. Open the dock from `View -> Docks -> Next Stream`.
+2. Choose the target text source.
+3. Configure the days and times when you stream.
+4. Adjust the output format and preview.
+5. Let the plugin update the selected text source automatically.
 
-The workflows make use of GitHub repository actions (contained in `.github/actions`) and build scripts (contained in `.github/scripts`) which are not needed for local development, but might need to be adjusted if additional/different steps are required to build the plugin.
+## Building from Source
 
-### Retrieving build artifacts
+Requires CMake 3.28 or newer, Qt 6, OBS development headers, and a supported
+compiler toolchain.
 
-Successful builds on GitHub Actions will produce build artifacts that can be downloaded for testing. These artifacts are commonly simple archives and will not contain package installers or installation programs.
+```bash
+cmake --preset windows-x64
+cmake --build --preset windows-x64 --config RelWithDebInfo
+```
 
-### Building a Release
+## Source Code
 
-To create a release, an appropriately named tag needs to be pushed to the `main`/`master` branch using semantic versioning (e.g., `12.3.4`, `23.4.5-beta2`). A draft release will be created on the associated repository with generated installer packages or installation programs attached as release artifacts.
+Source code is available at:
 
-## Signing and Notarizing on macOS
+```text
+https://github.com/KSTYER1/dynamic-next-stream
+```
 
-Basic concepts of codesigning and notarization on macOS are explained in the correspodning [Wiki article](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS) which has a specific section for the [GitHub Actions setup](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS#setting-up-code-signing-for-github-actions).
+## Version History
+
+### 1.0.1
+
+- Current Windows x64 release.
+- Split from the older combined time/date/countdown package.
+- Added a dedicated dock for weekly stream planning.
+
+## License
+
+Dynamic Next Stream is licensed under GPL-2.0-or-later.
+
+## Disclaimer
+
+Dynamic Next Stream is an unofficial third-party plugin and is not affiliated
+with or endorsed by the OBS Project.
+
+AI-assisted tools were used during development and release preparation. The
+maintainer is responsible for reviewing, testing, and publishing the released
+plugin.
