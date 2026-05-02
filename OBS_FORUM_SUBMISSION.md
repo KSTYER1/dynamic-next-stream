@@ -38,7 +38,7 @@ https://github.com/KSTYER1/dynamic-next-stream
 
 ## Download URL
 
-TODO: publish or upload the 1.0.1 release package
+https://github.com/KSTYER1/dynamic-next-stream/releases/tag/v1.0.1
 
 ## Overview
 
@@ -105,7 +105,7 @@ plugin.
 - [x] README is visible on GitHub after the next documentation push.
 - [x] GPL license is visible on GitHub.
 - [x] Source Code URL field points to the repository.
-- [ ] Release ZIP is attached to GitHub Releases or uploaded to the forum.
+- [x] Release ZIP is attached to GitHub Releases or uploaded to the forum.
 - [ ] At least one screenshot/GIF is added to the resource description.
 - [x] Description is in English.
 - [x] No OBS logo is used as resource icon or marketing artwork.
