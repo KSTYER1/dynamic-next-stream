@@ -1,6 +1,6 @@
 /*
 Dynamic Next Stream — OBS Dock for managing a weekly stream schedule
-Copyright (C) 2026 K_STYER, GPLv2 or later
+Copyright (C) 2026 K_STYER1, GPLv2 or later
 */
 
 #include <obs-module.h>
@@ -21,7 +21,7 @@ MODULE_EXPORT const char *obs_module_name(void)
 
 MODULE_EXPORT const char *obs_module_author(void)
 {
-	return "K_STYER";
+	return "K_STYER1";
 }
 
 extern void next_stream_dock_register(void);
