@@ -4,6 +4,8 @@
 #include <QString>
 #include <QVector>
 
+#include <ctime>
+
 class QComboBox;
 class QLineEdit;
 class QSpinBox;
@@ -30,6 +32,10 @@ struct StreamEntry {
 	QString day_name;
 	QString time_hhmm;
 	QString category;
+	time_t start_time = 0;
+	int day_index = 0;
+	int day = 0;
+	int month = 0;
 	long long seconds_from_now = 0;
 };
 
@@ -39,6 +45,7 @@ class NextStreamDock : public QFrame {
 public:
 	explicit NextStreamDock(QWidget *parent = nullptr);
 	~NextStreamDock() override;
+	void shutdown();
 
 public slots:
 	void on_refresh_sources_clicked();
@@ -46,6 +53,7 @@ public slots:
 private slots:
 	void on_settings_changed();
 	void on_browse_file_clicked();
+	void on_browse_discord_file_clicked();
 	void on_update_timer();
 	void on_preview_timer();
 	void on_use_even_odd_toggled(bool checked);
@@ -61,14 +69,18 @@ private:
 	void refresh_source_combo();
 
 	void compute_next_streams(int max_count, QVector<StreamEntry> &out);
+	void compute_discord_week_streams(QVector<StreamEntry> &out, QString &week_header);
 	QString render_obs(const QVector<StreamEntry> &list);
 	QString render_file(const QVector<StreamEntry> &list);
+	QString render_discord_file(const QVector<StreamEntry> &list, const QString &week_header);
 	QString wrap_category(const QString &cat, const QString &mode);
 	QString humanize_seconds(long long secs);
+	QString selected_target_source_name() const;
 
 	QString config_file_path() const;
 
 	bool m_loading = false;
+	bool m_shutdown = false;
 
 	// Sticky top
 	QLabel *m_status_clock = nullptr;
@@ -106,6 +118,13 @@ private:
 	QSpinBox *m_file_max_streams = nullptr;
 	QLineEdit *m_file_separator = nullptr;
 	QCheckBox *m_file_multiline = nullptr;
+	QLineEdit *m_discord_file_path = nullptr;
+	QPushButton *m_discord_file_browse = nullptr;
+	QComboBox *m_discord_week_start = nullptr;
+	QCheckBox *m_discord_show_past = nullptr;
+	QSpinBox *m_discord_days = nullptr;
+	QCheckBox *m_discord_show_category = nullptr;
+	QComboBox *m_discord_layout = nullptr;
 
 	// Days
 	QCheckBox *m_day_enabled[7] = {nullptr};
@@ -118,7 +137,11 @@ private:
 	QTimer *m_preview_timer_obj = nullptr;
 
 	QString m_last_obs_text;
+	QString m_last_obs_target;
 	QString m_last_file_text;
+	QString m_last_file_path;
+	QString m_last_discord_file_text;
+	QString m_last_discord_path;
 
 	obs_data_t *m_pending_load = nullptr;
 };

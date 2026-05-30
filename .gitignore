@@ -15,6 +15,7 @@
 !CMakePresets.json
 !LICENSE
 !OBS_FORUM_SUBMISSION.md
+!package.ps1
 !README.md
 
 # Exclude lock files

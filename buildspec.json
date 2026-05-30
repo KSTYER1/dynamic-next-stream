@@ -33,13 +33,13 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "com.kstyer.dynamic-next-stream"
+            "bundleId": "com.kstyer1.dynamic-next-stream"
         }
     },
     "name": "dynamic-next-stream",
     "displayName": "Dynamic Next Stream",
-    "version": "1.0.1",
+    "version": "1.0.4",
     "author": "K_STYER1",
-    "website": "https://github.com/kstyer/dynamic-next-stream",
+    "website": "https://github.com/KSTYER1/dynamic-next-stream",
     "email": "noreply@example.com"
 }

@@ -1,4 +1,4 @@
-Dynamic Next Stream - OBS Dock Plugin v1.0.0
+Dynamic Next Stream - OBS Dock Plugin v1.0.4
 ============================================
 
 Dynamic Next Stream is a native OBS dock for planning upcoming streams and
@@ -8,7 +8,7 @@ displaying a live countdown plus schedule preview.
 Package Contents
 ----------------
 
-  dynamic-next-stream-1.0.0\
+  dynamic-next-stream-1.0.4\
     INSTALL.bat
     README.txt
     obs-plugins\
@@ -46,6 +46,7 @@ Inside the dock you can:
   - configure formatting, categories, and day labels
   - preview the rendered output live
   - export the result to a text file if needed
+  - write a Discord-ready weekly text file
 
 
 Requirements

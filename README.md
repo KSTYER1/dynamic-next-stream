@@ -14,7 +14,8 @@ text overlay without editing the text source manually before every show.
 - Live preview with one-click copy.
 - Automatic updates on a configurable interval.
 - Direct output to OBS text sources.
-- Optional file output for use outside OBS.
+- Optional free-format file output for use outside OBS.
+- Optional configurable Discord-ready text file for Streamer.bot or chat posting.
 - German and English UI text.
 
 ## Requirements
@@ -24,20 +25,6 @@ text overlay without editing the text source manually before every show.
 - Qt 6, provided by OBS Studio
 
 ## Installation
-
-Recommended installer:
-
-1. Download the `*-setup.exe` file from the latest GitHub release.
-2. Close OBS Studio.
-3. Run the installer and select your OBS Studio installation folder.
-4. Start OBS Studio again.
-
-Portable or manual installation:
-
-1. Download the release ZIP instead of the setup EXE.
-2. Extract the ZIP into your OBS Studio installation folder, or copy the
-   included `obs-plugins` and `data` folders into it.
-3. Start OBS Studio again.
 
 Download the release archive and extract or copy its contents into your OBS
 Studio installation directory.
@@ -64,6 +51,11 @@ View -> Docks -> Next Stream
 4. Adjust the output format and preview.
 5. Let the plugin update the selected text source automatically.
 
+The file tab can also write a Discord plan. You can choose whether it starts on
+Sunday, Monday, or today, whether past streams stay visible, how many days are
+listed, whether categories are included, and whether the output is compact or
+spaced with a Sunday week divider.
+
 ## Building from Source
 
 Requires CMake 3.28 or newer, Qt 6, OBS development headers, and a supported
@@ -83,6 +75,20 @@ https://github.com/KSTYER1/dynamic-next-stream
 ```
 
 ## Version History
+
+### 1.0.4
+
+- Changed Discord TXT day count to a free numeric field.
+- Updated Discord TXT formatting to Markdown-style weekly entries with a Sunday week divider.
+
+### 1.0.3
+
+- Added Discord TXT options for week start, past streams, day count, categories, and layout.
+
+### 1.0.2
+
+- Reworked the Plan tab into two-row weekday entries with full-width category fields.
+- Added separate free TXT and Discord weekly TXT output paths.
 
 ### 1.0.1
 

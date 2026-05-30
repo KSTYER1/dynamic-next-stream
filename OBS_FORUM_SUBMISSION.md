@@ -6,7 +6,7 @@ Dynamic Next Stream
 
 ## Version
 
-1.0.1
+1.0.4
 
 ## Category
 
@@ -38,7 +38,7 @@ https://github.com/KSTYER1/dynamic-next-stream
 
 ## Download URL
 
-https://github.com/KSTYER1/dynamic-next-stream/releases/tag/v1.0.1
+https://github.com/KSTYER1/dynamic-next-stream/releases/tag/v1.0.4
 
 ## Overview
 
@@ -56,7 +56,8 @@ automatically from a configured schedule.
 - Live preview with one-click copy.
 - Automatic updates on a configurable interval.
 - Direct output to OBS text sources.
-- Optional file output.
+- Optional free-format file output.
+- Optional configurable Discord-ready text file for Streamer.bot or chat posting.
 - English and German UI text.
 
 ## Installation
@@ -85,6 +86,11 @@ View -> Docks -> Next Stream
 3. Configure stream days and times.
 4. Adjust the output format.
 5. Let the plugin update the selected text source automatically.
+
+The file tab can write both a configurable free TXT output and a Discord TXT
+output. The Discord file can start on Sunday, Monday, or today, show or hide
+past streams, list a user-entered number of days, include categories, and switch
+between compact or spaced Markdown layout with a Sunday week divider.
 
 ## License
 
