@@ -51,10 +51,10 @@ View -> Docks -> Next Stream
 4. Adjust the output format and preview.
 5. Let the plugin update the selected text source automatically.
 
-The file tab can also write a Discord plan. You can choose whether it starts on
-Sunday, Monday, or today, whether past streams stay visible, how many days are
-listed, whether categories are included, and whether the output is compact or
-spaced with a Sunday week divider.
+The file tab can also write a Discord plan. Sunday and Monday week starts use
+the current week for that weekday; the plan week control can manually advance
+to later weeks. The Discord count is the number of real stream entries to list,
+so stream-free days are skipped.
 
 ## Building from Source
 
@@ -75,6 +75,18 @@ https://github.com/KSTYER1/dynamic-next-stream
 ```
 
 ## Version History
+
+### 1.0.6
+
+- Changed Discord TXT Sunday/Monday starts to use the current week for the
+  selected weekday instead of rolling forward automatically.
+- Added a manual plan week offset for switching to later planned weeks.
+- Changed the Discord TXT count from calendar days to real stream entries, so
+  stream-free days are skipped.
+
+### 1.0.5
+
+- Fixed Discord TXT week start dates so Sunday/Monday start modes roll forward to the next matching plan start instead of staying on the previous week.
 
 ### 1.0.4
 

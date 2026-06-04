@@ -121,8 +121,9 @@ private:
 	QLineEdit *m_discord_file_path = nullptr;
 	QPushButton *m_discord_file_browse = nullptr;
 	QComboBox *m_discord_week_start = nullptr;
+	QSpinBox *m_discord_week_offset = nullptr;
 	QCheckBox *m_discord_show_past = nullptr;
-	QSpinBox *m_discord_days = nullptr;
+	QSpinBox *m_discord_streams = nullptr;
 	QCheckBox *m_discord_show_category = nullptr;
 	QComboBox *m_discord_layout = nullptr;
 

@@ -82,6 +82,11 @@ static QTime parse_hhmm(const QString &s)
 	return t;
 }
 
+static int days_since_wday(int current_wday, int target_wday)
+{
+	return (current_wday - target_wday + 7) % 7;
+}
+
 NextStreamDock::NextStreamDock(QWidget *parent) : QFrame(parent)
 {
 	setFrameShape(QFrame::NoFrame);
@@ -448,12 +453,18 @@ void NextStreamDock::build_ui()
 		m_discord_week_start->addItem(obs_module_text("NextStreamDiscordWeekStartMonday"), "monday");
 		m_discord_week_start->addItem(obs_module_text("NextStreamDiscordWeekStartToday"), "today");
 
+		m_discord_week_offset = new QSpinBox();
+		m_discord_week_offset->setRange(0, 8);
+		m_discord_week_offset->setPrefix("+");
+		m_discord_week_offset->setSuffix(" " + module_text("NextStreamWeeksSuffix"));
+		m_discord_week_offset->setToolTip(module_text("NextStreamDiscordWeekOffsetTip"));
+
 		m_discord_show_past = new QCheckBox(obs_module_text("NextStreamDiscordShowPast"));
 
-		m_discord_days = new QSpinBox();
-		m_discord_days->setRange(1, 31);
-		m_discord_days->setSuffix(" " + module_text("NextStreamDaysSuffix"));
-		m_discord_days->setToolTip(module_text("NextStreamDiscordDaysTip"));
+		m_discord_streams = new QSpinBox();
+		m_discord_streams->setRange(1, 31);
+		m_discord_streams->setSuffix(" " + module_text("NextStreamStreamsSuffix"));
+		m_discord_streams->setToolTip(module_text("NextStreamDiscordStreamsTip"));
 
 		m_discord_show_category = new QCheckBox(obs_module_text("NextStreamDiscordShowCategory"));
 
@@ -463,8 +474,9 @@ void NextStreamDock::build_ui()
 
 		discord_form->addRow(obs_module_text("NextStreamDiscordFilePath"), discord_path_row);
 		discord_form->addRow(obs_module_text("NextStreamDiscordWeekStart"), m_discord_week_start);
+		discord_form->addRow(obs_module_text("NextStreamDiscordWeekOffset"), m_discord_week_offset);
 		discord_form->addRow(QString(), m_discord_show_past);
-		discord_form->addRow(obs_module_text("NextStreamDiscordDays"), m_discord_days);
+		discord_form->addRow(obs_module_text("NextStreamDiscordStreams"), m_discord_streams);
 		discord_form->addRow(QString(), m_discord_show_category);
 		discord_form->addRow(obs_module_text("NextStreamDiscordLayout"), m_discord_layout);
 		discord_form->addRow(QString(), discord_hint);
@@ -516,7 +528,8 @@ void NextStreamDock::connect_signals()
 	connect(m_day_format, &QComboBox::currentIndexChanged, this, onChange);
 	connect(m_category_mode, &QComboBox::currentIndexChanged, this, onChange);
 	connect(m_discord_week_start, &QComboBox::currentIndexChanged, this, onChange);
-	connect(m_discord_days, &QSpinBox::valueChanged, this, onChange);
+	connect(m_discord_week_offset, &QSpinBox::valueChanged, this, onChange);
+	connect(m_discord_streams, &QSpinBox::valueChanged, this, onChange);
 	connect(m_discord_layout, &QComboBox::currentIndexChanged, this, onChange);
 
 	connect(m_max_streams, &QSpinBox::valueChanged, this, onChange);
@@ -641,8 +654,9 @@ void NextStreamDock::load_settings()
 	obs_data_set_default_string(d, "file_path", "");
 	obs_data_set_default_string(d, "discord_file_path", "");
 	obs_data_set_default_string(d, "discord_week_start", "sunday");
+	obs_data_set_default_int(d, "discord_week_offset", 0);
 	obs_data_set_default_bool(d, "discord_show_past", true);
-	obs_data_set_default_int(d, "discord_days_displayed", 8);
+	obs_data_set_default_int(d, "discord_streams_displayed", 3);
 	obs_data_set_default_bool(d, "discord_show_category", true);
 	obs_data_set_default_string(d, "discord_layout", "spacious");
 	obs_data_set_default_bool(d, "file_use_emojis", true);
@@ -698,8 +712,9 @@ void NextStreamDock::apply_settings_to_widgets()
 	m_file_path->setText(get_str("file_path"));
 	m_discord_file_path->setText(get_str("discord_file_path"));
 	set_combo_data(m_discord_week_start, get_str("discord_week_start"));
+	m_discord_week_offset->setValue((int)obs_data_get_int(d, "discord_week_offset"));
 	m_discord_show_past->setChecked(obs_data_get_bool(d, "discord_show_past"));
-	m_discord_days->setValue((int)obs_data_get_int(d, "discord_days_displayed"));
+	m_discord_streams->setValue((int)obs_data_get_int(d, "discord_streams_displayed"));
 	m_discord_show_category->setChecked(obs_data_get_bool(d, "discord_show_category"));
 	set_combo_data(m_discord_layout, get_str("discord_layout"));
 	m_file_use_emojis->setChecked(obs_data_get_bool(d, "file_use_emojis"));
@@ -751,8 +766,9 @@ void NextStreamDock::save_settings()
 	obs_data_set_string(d, "file_path", m_file_path->text().toUtf8().constData());
 	obs_data_set_string(d, "discord_file_path", m_discord_file_path->text().toUtf8().constData());
 	obs_data_set_string(d, "discord_week_start", m_discord_week_start->currentData().toString().toUtf8().constData());
+	obs_data_set_int(d, "discord_week_offset", m_discord_week_offset->value());
 	obs_data_set_bool(d, "discord_show_past", m_discord_show_past->isChecked());
-	obs_data_set_int(d, "discord_days_displayed", m_discord_days->value());
+	obs_data_set_int(d, "discord_streams_displayed", m_discord_streams->value());
 	obs_data_set_bool(d, "discord_show_category", m_discord_show_category->isChecked());
 	obs_data_set_string(d, "discord_layout", m_discord_layout->currentData().toString().toUtf8().constData());
 	obs_data_set_bool(d, "file_use_emojis", m_file_use_emojis->isChecked());
@@ -976,10 +992,11 @@ void NextStreamDock::compute_discord_week_streams(QVector<StreamEntry> &out, QSt
 	week_start_tm.tm_isdst = -1;
 	const QString week_start_mode = m_discord_week_start->currentData().toString();
 	if (week_start_mode == "sunday") {
-		week_start_tm.tm_mday -= week_start_tm.tm_wday;
+		week_start_tm.tm_mday -= days_since_wday(week_start_tm.tm_wday, 0);
 	} else if (week_start_mode == "monday") {
-		week_start_tm.tm_mday -= (week_start_tm.tm_wday == 0) ? 6 : (week_start_tm.tm_wday - 1);
+		week_start_tm.tm_mday -= days_since_wday(week_start_tm.tm_wday, 1);
 	}
+	week_start_tm.tm_mday += m_discord_week_offset->value() * 7;
 	time_t week_start = mktime(&week_start_tm);
 
 	struct tm header_tm;
@@ -992,11 +1009,9 @@ void NextStreamDock::compute_discord_week_streams(QVector<StreamEntry> &out, QSt
 			      .arg(header_tm.tm_mday, 2, 10, QLatin1Char('0'))
 			      .arg(header_tm.tm_mon + 1, 2, 10, QLatin1Char('0'));
 
-	int days = m_discord_days->value();
-	if (days <= 0)
-		days = 8;
+	const int stream_limit = (m_discord_streams->value() > 0) ? m_discord_streams->value() : 3;
 
-	for (int offset = 0; offset < days; offset++) {
+	for (int offset = 0; offset < 366 && out.size() < stream_limit; offset++) {
 		struct tm dt = header_tm;
 		dt.tm_mday += offset;
 		dt.tm_hour = 0;

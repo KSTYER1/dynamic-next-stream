@@ -5,7 +5,7 @@ title Dynamic Next Stream (Dock Plugin) - Installer
 
 set "PLUGIN_NAME=dynamic-next-stream"
 set "PLUGIN_DISPLAY=Dynamic Next Stream (Dock Plugin)"
-set "PLUGIN_VERSION=1.0.4"
+set "PLUGIN_VERSION=1.0.6"
 set "SCRIPT_DIR=%~dp0"
 set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 

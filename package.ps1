@@ -4,12 +4,12 @@
 
 .USAGE
     .\package.ps1
-    .\package.ps1 -Version "1.0.4"
+    .\package.ps1 -Version "1.0.6"
     .\package.ps1 -SkipDeploy
     .\package.ps1 -DeployUserPlugin
 #>
 param(
-    [string]$Version = "1.0.4",
+    [string]$Version = "1.0.6",
     [switch]$DeployUserPlugin,
     [switch]$SkipDeploy
 )
