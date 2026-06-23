@@ -28,6 +28,7 @@ the next streams into a chosen OBS text source.
 #include <QScrollArea>
 #include <QFileDialog>
 #include <QFile>
+#include <QSaveFile>
 #include <QFileInfo>
 #include <QDir>
 #include <QDateTime>
@@ -869,6 +870,43 @@ void NextStreamDock::on_browse_discord_file_clicked()
 		m_discord_file_path->setText(fn);
 }
 
+static bool write_utf8_text_file(const QString &path, const QString &text, const char *label)
+{
+	QFileInfo fi(path);
+	QByteArray path_utf8 = path.toUtf8();
+	QByteArray dir_utf8 = fi.absolutePath().toUtf8();
+	if (!QDir().mkpath(fi.absolutePath())) {
+		obs_log(LOG_WARNING, "next-stream: cannot create %s output directory %s", label,
+			dir_utf8.constData());
+		return false;
+	}
+
+	QSaveFile f(path);
+	if (!f.open(QIODevice::WriteOnly)) {
+		QByteArray error_utf8 = f.errorString().toUtf8();
+		obs_log(LOG_WARNING, "next-stream: cannot write %s output %s: %s", label, path_utf8.constData(),
+			error_utf8.constData());
+		return false;
+	}
+
+	QByteArray bytes = text.toUtf8();
+	qint64 written = f.write(bytes);
+	if (written != static_cast<qint64>(bytes.size())) {
+		obs_log(LOG_WARNING, "next-stream: incomplete write for %s output %s", label, path_utf8.constData());
+		f.cancelWriting();
+		return false;
+	}
+
+	if (!f.commit()) {
+		QByteArray error_utf8 = f.errorString().toUtf8();
+		obs_log(LOG_WARNING, "next-stream: cannot commit %s output %s: %s", label, path_utf8.constData(),
+			error_utf8.constData());
+		return false;
+	}
+
+	return true;
+}
+
 QString NextStreamDock::wrap_category(const QString &cat, const QString &mode)
 {
 	if (cat.isEmpty() || mode == "hide")
@@ -1217,15 +1255,9 @@ void NextStreamDock::on_update_timer()
 		compute_next_streams(m_file_max_streams->value(), list_file);
 		QString file_text = render_file(list_file);
 		if (file_path != m_last_file_path || file_text != m_last_file_text) {
-			QFile f(file_path);
-			if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-				f.write(file_text.toUtf8());
-				f.close();
+			if (write_utf8_text_file(file_path, file_text, "free TXT")) {
 				m_last_file_text = file_text;
 				m_last_file_path = file_path;
-			} else {
-				obs_log(LOG_WARNING, "next-stream: cannot write %s",
-					file_path.toUtf8().constData());
 			}
 		}
 	} else {
@@ -1240,15 +1272,9 @@ void NextStreamDock::on_update_timer()
 		compute_discord_week_streams(list_discord, week_header);
 		QString discord_text = render_discord_file(list_discord, week_header);
 		if (discord_path != m_last_discord_path || discord_text != m_last_discord_file_text) {
-			QFile f(discord_path);
-			if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-				f.write(discord_text.toUtf8());
-				f.close();
+			if (write_utf8_text_file(discord_path, discord_text, "Discord TXT")) {
 				m_last_discord_file_text = discord_text;
 				m_last_discord_path = discord_path;
-			} else {
-				obs_log(LOG_WARNING, "next-stream: cannot write %s",
-					discord_path.toUtf8().constData());
 			}
 		}
 	} else {

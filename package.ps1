@@ -26,6 +26,20 @@ $BuildspecPath = Join-Path $Root "buildspec.json"
 $Nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
 if (-not (Test-Path $Nsis)) { $Nsis = "${env:ProgramFiles}\NSIS\makensis.exe" }
 
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+
+    & $Command @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $Command $($Arguments -join ' ')"
+    }
+}
+
 $Buildspec = Get-Content -LiteralPath $BuildspecPath -Raw | ConvertFrom-Json
 if (-not $PSBoundParameters.ContainsKey("Version")) {
     $Version = $Buildspec.version
@@ -34,8 +48,8 @@ if (-not $PSBoundParameters.ContainsKey("Version")) {
 }
 
 Write-Host "`n[1/5] Build $Config..." -ForegroundColor Cyan
-cmake --preset windows-x64
-cmake --build --preset windows-x64
+Invoke-Native cmake --preset windows-x64
+Invoke-Native cmake --build --preset windows-x64
 if (-not (Test-Path $Dll)) { throw "Build failed: $Dll not found" }
 
 Write-Host "`n[2/5] Create dist layout..." -ForegroundColor Cyan
@@ -151,35 +165,41 @@ Copy-Item (Join-Path $Data "locale\de-DE.ini") (Join-Path $Dist "locale\") -Forc
 
 Write-Host "`n[4/5] Build NSIS installer..." -ForegroundColor Cyan
 if (-not (Test-Path $Nsis)) {
-    Write-Warning "makensis.exe not found. Installer skipped."
+    throw "makensis.exe not found. Installer cannot be built."
 } else {
     Push-Location $Dist
-    & $Nsis "dynamic-next-stream.nsi"
-    Pop-Location
+    try {
+        Invoke-Native $Nsis "dynamic-next-stream.nsi"
+    } finally {
+        Pop-Location
+    }
 }
 
 Write-Host "`n[5/5] Deploy..." -ForegroundColor Cyan
+$NeedsDeploy = (-not $SkipDeploy) -or $DeployUserPlugin
+if ($NeedsDeploy) {
+    $ObsProcess = Get-Process obs64 -ErrorAction SilentlyContinue
+    if ($ObsProcess) {
+        throw "OBS is running. Close OBS before deploying the DLL."
+    }
+}
+
 if ($SkipDeploy) {
     Write-Host "  -> skipped (-SkipDeploy)" -ForegroundColor DarkGray
 } else {
-    $ObsProcess = Get-Process obs64 -ErrorAction SilentlyContinue
-    if ($ObsProcess) {
-        Write-Warning "OBS is running. Close OBS before deploying the DLL."
+    $ObsBeta = Join-Path ([Environment]::GetFolderPath("Desktop")) "OBS 32.1 BETA"
+    if (Test-Path $ObsBeta) {
+        $Dst64 = Join-Path $ObsBeta "obs-plugins\64bit"
+        $DstData = Join-Path $ObsBeta "data\obs-plugins\dynamic-next-stream\locale"
+        New-Item -ItemType Directory -Force $Dst64 | Out-Null
+        New-Item -ItemType Directory -Force $DstData | Out-Null
+        Copy-Item $Dll (Join-Path $Dst64 "dynamic-next-stream.dll") -Force
+        if (Test-Path $Pdb) { Copy-Item $Pdb (Join-Path $Dst64 "dynamic-next-stream.pdb") -Force }
+        Copy-Item (Join-Path $Data "locale\en-US.ini") $DstData -Force
+        Copy-Item (Join-Path $Data "locale\de-DE.ini") $DstData -Force
+        Write-Host "  -> Portable OBS ($ObsBeta)" -ForegroundColor Green
     } else {
-        $ObsBeta = Join-Path ([Environment]::GetFolderPath("Desktop")) "OBS 32.1 BETA"
-        if (Test-Path $ObsBeta) {
-            $Dst64 = Join-Path $ObsBeta "obs-plugins\64bit"
-            $DstData = Join-Path $ObsBeta "data\obs-plugins\dynamic-next-stream\locale"
-            New-Item -ItemType Directory -Force $Dst64 | Out-Null
-            New-Item -ItemType Directory -Force $DstData | Out-Null
-            Copy-Item $Dll (Join-Path $Dst64 "dynamic-next-stream.dll") -Force
-            if (Test-Path $Pdb) { Copy-Item $Pdb (Join-Path $Dst64 "dynamic-next-stream.pdb") -Force }
-            Copy-Item (Join-Path $Data "locale\en-US.ini") $DstData -Force
-            Copy-Item (Join-Path $Data "locale\de-DE.ini") $DstData -Force
-            Write-Host "  -> Portable OBS ($ObsBeta)" -ForegroundColor Green
-        } else {
-            Write-Warning "Portable OBS not found: $ObsBeta"
-        }
+        throw "Portable OBS not found: $ObsBeta"
     }
 }
 
