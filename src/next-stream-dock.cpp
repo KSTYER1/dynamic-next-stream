@@ -46,14 +46,14 @@ the next streams into a chosen OBS text source.
 #include <vector>
 
 static const char *DAY_FULL_KEYS[7] = {
-	"NextStreamDayFullMonday", "NextStreamDayFullTuesday", "NextStreamDayFullWednesday",
-	"NextStreamDayFullThursday", "NextStreamDayFullFriday", "NextStreamDayFullSaturday",
+	"NextStreamDayFullMonday",   "NextStreamDayFullTuesday", "NextStreamDayFullWednesday",
+	"NextStreamDayFullThursday", "NextStreamDayFullFriday",  "NextStreamDayFullSaturday",
 	"NextStreamDayFullSunday",
 };
 
 static const char *DAY_SHORT_KEYS[7] = {
-	"NextStreamDayShortMonday", "NextStreamDayShortTuesday", "NextStreamDayShortWednesday",
-	"NextStreamDayShortThursday", "NextStreamDayShortFriday", "NextStreamDayShortSaturday",
+	"NextStreamDayShortMonday",   "NextStreamDayShortTuesday", "NextStreamDayShortWednesday",
+	"NextStreamDayShortThursday", "NextStreamDayShortFriday",  "NextStreamDayShortSaturday",
 	"NextStreamDayShortSunday",
 };
 
@@ -86,6 +86,66 @@ static QTime parse_hhmm(const QString &s)
 static int days_since_wday(int current_wday, int target_wday)
 {
 	return (current_wday - target_wday + 7) % 7;
+}
+
+// Resolve local wall time without silently moving a stream across a DST gap.
+// During a repeated hour prefer its later, standard-time occurrence.
+static bool stream_start_for_day(const struct tm &day, const QTime &chosen, time_t &start, struct tm &resolved)
+{
+	for (int dst : {0, 1}) {
+		struct tm candidate = day;
+		candidate.tm_hour = chosen.hour();
+		candidate.tm_min = chosen.minute();
+		candidate.tm_sec = 0;
+		candidate.tm_isdst = dst;
+		time_t value = mktime(&candidate);
+		if (value == (time_t)-1)
+			continue;
+#ifdef _WIN32
+		if (localtime_s(&resolved, &value) != 0)
+			continue;
+#else
+		if (!localtime_r(&value, &resolved))
+			continue;
+#endif
+		if (resolved.tm_year == day.tm_year && resolved.tm_mon == day.tm_mon &&
+		    resolved.tm_mday == day.tm_mday && resolved.tm_hour == chosen.hour() &&
+		    resolved.tm_min == chosen.minute()) {
+			start = value;
+			return true;
+		}
+	}
+	return false;
+}
+
+static QString normalized_output_path(const QString &path)
+{
+	QFileInfo file(QDir::cleanPath(QFileInfo(path).absoluteFilePath()));
+	QString canonical = file.canonicalFilePath();
+	if (canonical.isEmpty()) {
+		QString tail = file.fileName();
+		QDir parent = file.absoluteDir();
+		while (parent.canonicalPath().isEmpty() && !parent.isRoot()) {
+			tail = parent.dirName() + "/" + tail;
+			// QDir::cdUp requires an existing directory; walk lexically so a
+			// not-yet-created nested export directory still resolves its ancestors.
+			parent = QDir(QDir::cleanPath(parent.absolutePath() + "/.."));
+		}
+		QString base = parent.canonicalPath();
+		canonical = QDir(base.isEmpty() ? parent.absolutePath() : base).filePath(tail);
+	}
+	return QDir::cleanPath(canonical);
+}
+
+static bool same_output_path(const QString &first, const QString &second)
+{
+	if (first.isEmpty() || second.isEmpty())
+		return false;
+#ifdef _WIN32
+	return normalized_output_path(first).compare(normalized_output_path(second), Qt::CaseInsensitive) == 0;
+#else
+	return normalized_output_path(first) == normalized_output_path(second);
+#endif
 }
 
 NextStreamDock::NextStreamDock(QWidget *parent) : QFrame(parent)
@@ -163,6 +223,14 @@ void NextStreamDock::build_ui()
 
 	top_lay->addWidget(m_status_clock);
 	top_lay->addWidget(m_status_next);
+	for (QLabel **warning : {&m_settings_warning, &m_export_warning}) {
+		*warning = new QLabel();
+		(*warning)->setTextFormat(Qt::PlainText);
+		(*warning)->setWordWrap(true);
+		(*warning)->setStyleSheet("color: #e5a650;");
+		(*warning)->hide();
+		top_lay->addWidget(*warning);
+	}
 
 	// Source row
 	auto *src_row = new QHBoxLayout();
@@ -198,10 +266,9 @@ void NextStreamDock::build_ui()
 	m_preview = new QPlainTextEdit();
 	m_preview->setReadOnly(true);
 	m_preview->setMaximumHeight(90);
-	m_preview->setStyleSheet(
-		"QPlainTextEdit { font-family: Consolas, 'Courier New', monospace; "
-		"background: #181818; color: #e0e0e0; border: 1px solid #333; "
-		"border-radius: 4px; padding: 4px; }");
+	m_preview->setStyleSheet("QPlainTextEdit { font-family: Consolas, 'Courier New', monospace; "
+				 "background: #181818; color: #e0e0e0; border: 1px solid #333; "
+				 "border-radius: 4px; padding: 4px; }");
 	top_lay->addLayout(preview_header);
 	top_lay->addWidget(m_preview);
 
@@ -491,18 +558,16 @@ void NextStreamDock::build_ui()
 
 	// Opaque popup background for all combo boxes (fixes transparent dropdown
 	// inheritance from the OBS dark theme).
-	const QString comboPopupQss =
-		"QComboBox QAbstractItemView {"
-		"  background-color: #2b2b2b;"
-		"  color: #e0e0e0;"
-		"  selection-background-color: #3b6ea5;"
-		"  border: 1px solid #555;"
-		"}";
+	const QString comboPopupQss = "QComboBox QAbstractItemView {"
+				      "  background-color: #2b2b2b;"
+				      "  color: #e0e0e0;"
+				      "  selection-background-color: #3b6ea5;"
+				      "  border: 1px solid #555;"
+				      "}";
 	QList<QComboBox *> combos = {
-		m_target_source, m_day_format, m_category_mode,
-		m_day_time_choice[0], m_day_time_choice[1], m_day_time_choice[2],
-		m_day_time_choice[3], m_day_time_choice[4], m_day_time_choice[5],
-		m_day_time_choice[6], m_discord_week_start, m_discord_layout,
+		m_target_source,      m_day_format,         m_category_mode,      m_day_time_choice[0],
+		m_day_time_choice[1], m_day_time_choice[2], m_day_time_choice[3], m_day_time_choice[4],
+		m_day_time_choice[5], m_day_time_choice[6], m_discord_week_start, m_discord_layout,
 	};
 	for (QComboBox *c : combos)
 		c->setStyleSheet(c->styleSheet() + comboPopupQss);
@@ -558,9 +623,8 @@ void NextStreamDock::connect_signals()
 	for (int i = 0; i < 7; i++) {
 		connect(m_day_enabled[i], &QCheckBox::toggled, this, onChange);
 		connect(m_day_time_choice[i], &QComboBox::currentIndexChanged, this, onChange);
-		connect(m_day_time_choice[i], &QComboBox::currentIndexChanged, this, [this, i]() {
-			on_day_mode_changed(i);
-		});
+		connect(m_day_time_choice[i], &QComboBox::currentIndexChanged, this,
+			[this, i]() { on_day_mode_changed(i); });
 		connect(m_day_custom_time[i], &QTimeEdit::timeChanged, this, onChange);
 		connect(m_day_category[i], &QLineEdit::textChanged, this, onChange);
 	}
@@ -572,7 +636,7 @@ void NextStreamDock::connect_signals()
 	connect(m_preview_copy_btn, &QPushButton::clicked, this, [this]() {
 		QApplication::clipboard()->setText(m_preview->toPlainText());
 		const QString original = obs_module_text("NextStreamCopyPreview");
-		const QString done     = obs_module_text("NextStreamCopyPreviewDone");
+		const QString done = obs_module_text("NextStreamCopyPreviewDone");
 		m_preview_copy_btn->setText(done);
 		m_preview_copy_btn->setEnabled(false);
 		QTimer::singleShot(1200, m_preview_copy_btn, [this, original]() {
@@ -631,11 +695,24 @@ void NextStreamDock::load_settings()
 
 	QString path = config_file_path();
 	obs_data_t *d = nullptr;
-	if (!path.isEmpty() && QFile::exists(path)) {
-		QByteArray path_utf8 = path.toUtf8();
-		d = obs_data_create_from_json_file_safe(path_utf8.constData(), "bak");
-		if (!d)
-			obs_log(LOG_WARNING, "next-stream: failed to load settings from %s", path_utf8.constData());
+	const QString backup = path + ".bak";
+	const bool existing_config = !path.isEmpty() && (QFileInfo::exists(path) || QFileInfo::exists(backup));
+	if (!path.isEmpty()) {
+		// The OBS safe loader renames the backup before validating it. Read each
+		// candidate without modifying either original, including when main is absent.
+		d = obs_data_create_from_json_file(path.toUtf8().constData());
+		if (!d) {
+			d = obs_data_create_from_json_file(backup.toUtf8().constData());
+			m_recovered_from_backup = d != nullptr;
+		}
+	}
+	m_settings_writable = !path.isEmpty() && (d || !existing_config);
+	if (!m_settings_writable) {
+		m_settings_warning->setText(
+			module_text("NextStreamSettingsLoadError").arg(QDir::toNativeSeparators(path)));
+		m_settings_warning->show();
+		obs_log(LOG_WARNING, "next-stream: settings unreadable; automatic saving disabled: %s",
+			path.toUtf8().constData());
 	}
 	if (!d)
 		d = obs_data_create();
@@ -749,6 +826,8 @@ void NextStreamDock::apply_settings_to_widgets()
 
 void NextStreamDock::save_settings()
 {
+	if (!m_settings_writable)
+		return;
 	obs_data_t *d = obs_data_create();
 
 	obs_data_set_string(d, "target_source_name", selected_target_source_name().toUtf8().constData());
@@ -766,7 +845,8 @@ void NextStreamDock::save_settings()
 
 	obs_data_set_string(d, "file_path", m_file_path->text().toUtf8().constData());
 	obs_data_set_string(d, "discord_file_path", m_discord_file_path->text().toUtf8().constData());
-	obs_data_set_string(d, "discord_week_start", m_discord_week_start->currentData().toString().toUtf8().constData());
+	obs_data_set_string(d, "discord_week_start",
+			    m_discord_week_start->currentData().toString().toUtf8().constData());
 	obs_data_set_int(d, "discord_week_offset", m_discord_week_offset->value());
 	obs_data_set_bool(d, "discord_show_past", m_discord_show_past->isChecked());
 	obs_data_set_int(d, "discord_streams_displayed", m_discord_streams->value());
@@ -799,8 +879,12 @@ void NextStreamDock::save_settings()
 		if (!QDir().mkpath(fi.absolutePath())) {
 			obs_log(LOG_WARNING, "next-stream: cannot create config directory %s",
 				fi.absolutePath().toUtf8().constData());
-		} else if (!obs_data_save_json_safe(d, path_utf8.constData(), "tmp", "bak")) {
+		} else if (!obs_data_save_json_safe(d, path_utf8.constData(), "tmp",
+						    m_recovered_from_backup ? nullptr : "bak")) {
 			obs_log(LOG_WARNING, "next-stream: failed to save settings to %s", path_utf8.constData());
+		} else {
+			// Do not replace the last good backup with a corrupt former main.
+			m_recovered_from_backup = false;
 		}
 	}
 	obs_data_release(d);
@@ -850,7 +934,10 @@ void NextStreamDock::refresh_source_combo()
 
 void NextStreamDock::on_refresh_sources_clicked()
 {
+	m_last_obs_target.clear();
+	m_last_obs_uuid.clear();
 	refresh_source_combo();
+	on_update_timer();
 }
 
 void NextStreamDock::on_browse_file_clicked()
@@ -864,8 +951,8 @@ void NextStreamDock::on_browse_file_clicked()
 void NextStreamDock::on_browse_discord_file_clicked()
 {
 	QString start = m_discord_file_path->text();
-	QString fn = QFileDialog::getSaveFileName(this, obs_module_text("NextStreamDiscordFilePath"), start,
-						  "Text (*.txt)");
+	QString fn =
+		QFileDialog::getSaveFileName(this, obs_module_text("NextStreamDiscordFilePath"), start, "Text (*.txt)");
 	if (!fn.isEmpty())
 		m_discord_file_path->setText(fn);
 }
@@ -876,8 +963,7 @@ static bool write_utf8_text_file(const QString &path, const QString &text, const
 	QByteArray path_utf8 = path.toUtf8();
 	QByteArray dir_utf8 = fi.absolutePath().toUtf8();
 	if (!QDir().mkpath(fi.absolutePath())) {
-		obs_log(LOG_WARNING, "next-stream: cannot create %s output directory %s", label,
-			dir_utf8.constData());
+		obs_log(LOG_WARNING, "next-stream: cannot create %s output directory %s", label, dir_utf8.constData());
 		return false;
 	}
 
@@ -947,13 +1033,24 @@ void NextStreamDock::compute_next_streams(int max_count, QVector<StreamEntry> &o
 		return;
 
 	time_t now = time(nullptr);
+	struct tm today;
+#ifdef _WIN32
+	localtime_s(&today, &now);
+#else
+	localtime_r(&now, &today);
+#endif
 	int count = 0;
 	int offset = 0;
 	const int max_offset = 365;
 
 	while (count < max_count && offset < max_offset) {
-		time_t check = now + (time_t)offset * 86400;
-		struct tm dt;
+		struct tm dt = today;
+		dt.tm_mday += offset;
+		dt.tm_hour = 12;
+		dt.tm_min = 0;
+		dt.tm_sec = 0;
+		dt.tm_isdst = -1;
+		time_t check = mktime(&dt);
 #ifdef _WIN32
 		localtime_s(&dt, &check);
 #else
@@ -977,12 +1074,12 @@ void NextStreamDock::compute_next_streams(int max_count, QVector<StreamEntry> &o
 				chosen = m_day_custom_time[mon_first]->time();
 			}
 
-			struct tm st = dt;
-			st.tm_hour = chosen.hour();
-			st.tm_min = chosen.minute();
-			st.tm_sec = 0;
-			st.tm_isdst = -1;
-			time_t stream_start = mktime(&st);
+			struct tm st;
+			time_t stream_start;
+			if (!stream_start_for_day(dt, chosen, stream_start, st)) {
+				offset++;
+				continue;
+			}
 
 			if (stream_start > now) {
 				QString day_name;
@@ -992,7 +1089,8 @@ void NextStreamDock::compute_next_streams(int max_count, QVector<StreamEntry> &o
 					day_name = module_text("NextStreamTomorrow");
 				else {
 					QString fmt = m_day_format->currentData().toString();
-					day_name = (fmt == "full") ? day_name_full(mon_first) : day_name_short(mon_first);
+					day_name = (fmt == "full") ? day_name_full(mon_first)
+								   : day_name_short(mon_first);
 				}
 				StreamEntry e;
 				e.day_name = day_name;
@@ -1080,12 +1178,10 @@ void NextStreamDock::compute_discord_week_streams(QVector<StreamEntry> &out, QSt
 			chosen = m_day_custom_time[mon_first]->time();
 		}
 
-		struct tm st = dt;
-		st.tm_hour = chosen.hour();
-		st.tm_min = chosen.minute();
-		st.tm_sec = 0;
-		st.tm_isdst = -1;
-		time_t stream_start = mktime(&st);
+		struct tm st;
+		time_t stream_start;
+		if (!stream_start_for_day(dt, chosen, stream_start, st))
+			continue;
 		if (!m_discord_show_past->isChecked() && stream_start <= now)
 			continue;
 
@@ -1184,12 +1280,11 @@ QString NextStreamDock::render_discord_file(const QVector<StreamEntry> &list, co
 	for (int i = 0; i < list.size(); i++) {
 		const StreamEntry &e = list[i];
 		QString marker = (e.start_time <= now) ? QString::fromUtf8("\xE2\x9C\x85")
-						      : QString::fromUtf8("\xE2\x9E\xA1\xEF\xB8\x8F");
-		QString date_line = marker + " **" + e.day_name + ", " +
-				    QString("%1.%2.")
-					    .arg(e.day, 2, 10, QLatin1Char('0'))
-					    .arg(e.month, 2, 10, QLatin1Char('0')) +
-				    "**";
+						       : QString::fromUtf8("\xE2\x9E\xA1\xEF\xB8\x8F");
+		QString date_line =
+			marker + " **" + e.day_name + ", " +
+			QString("%1.%2.").arg(e.day, 2, 10, QLatin1Char('0')).arg(e.month, 2, 10, QLatin1Char('0')) +
+			"**";
 		QString time_line = QString::fromUtf8("🕖 ") + e.time_hhmm;
 		QString suffix = module_text("NextStreamClockSuffix");
 		if (!suffix.isEmpty())
@@ -1234,22 +1329,50 @@ void NextStreamDock::on_update_timer()
 	QString obs_text = render_obs(list_obs);
 
 	QString target = selected_target_source_name();
-	if (!target.isEmpty() && (target != m_last_obs_target || obs_text != m_last_obs_text)) {
+	if (!target.isEmpty()) {
 		obs_source_t *src = obs_get_source_by_name(target.toUtf8().constData());
 		if (src) {
-			obs_data_t *sd = obs_data_create();
-			obs_data_set_string(sd, "text", obs_text.toUtf8().constData());
-			obs_source_update(src, sd);
-			obs_data_release(sd);
+			const char *id = obs_source_get_unversioned_id(src);
+			const bool text_source = id && (!strcmp(id, "text_gdiplus") || !strcmp(id, "text_ft2_source"));
+			const QString uuid = QString::fromUtf8(obs_source_get_uuid(src));
+			if (text_source &&
+			    (uuid != m_last_obs_uuid || target != m_last_obs_target || obs_text != m_last_obs_text)) {
+				obs_data_t *sd = obs_data_create();
+				obs_data_set_string(sd, "text", obs_text.toUtf8().constData());
+				obs_source_update(src, sd);
+				obs_data_release(sd);
+				m_last_obs_text = obs_text;
+				m_last_obs_target = target;
+				m_last_obs_uuid = uuid;
+			} else if (!text_source) {
+				m_last_obs_target.clear();
+				m_last_obs_uuid.clear();
+			}
 			obs_source_release(src);
-			m_last_obs_text = obs_text;
-			m_last_obs_target = target;
+		} else {
+			m_last_obs_target.clear();
+			m_last_obs_uuid.clear();
 		}
 	} else if (target.isEmpty()) {
 		m_last_obs_target.clear();
+		m_last_obs_uuid.clear();
 	}
 
 	QString file_path = m_file_path->text();
+	QString discord_path = m_discord_file_path->text();
+	const bool conflict = same_output_path(file_path, discord_path);
+	m_export_warning->setText(conflict ? module_text("NextStreamExportPathConflict") : QString());
+	m_export_warning->setVisible(conflict);
+	if (conflict) {
+		if (!m_export_conflict)
+			obs_log(LOG_WARNING,
+				"next-stream: free TXT and Discord TXT share a destination; both exports paused");
+		m_export_conflict = true;
+		m_last_file_path.clear();
+		m_last_discord_path.clear();
+		return;
+	}
+	m_export_conflict = false;
 	if (!file_path.isEmpty()) {
 		QVector<StreamEntry> list_file;
 		compute_next_streams(m_file_max_streams->value(), list_file);
@@ -1265,7 +1388,6 @@ void NextStreamDock::on_update_timer()
 		m_last_file_text.clear();
 	}
 
-	QString discord_path = m_discord_file_path->text();
 	if (!discord_path.isEmpty()) {
 		QVector<StreamEntry> list_discord;
 		QString week_header;
@@ -1304,9 +1426,9 @@ void NextStreamDock::on_preview_timer()
 			QString cat = e.category.isEmpty() ? "" : (QString::fromUtf8(" · ") + e.category);
 			QString suffix = module_text("NextStreamClockSuffix");
 			QString time_text = e.time_hhmm + (suffix.isEmpty() ? QString() : (QString(" ") + suffix));
-			m_status_next->setText(module_text("NextStreamNextStreamStatus")
-						       .arg(e.day_name, time_text, cat,
-							    humanize_seconds(e.seconds_from_now)));
+			m_status_next->setText(
+				module_text("NextStreamNextStreamStatus")
+					.arg(e.day_name, time_text, cat, humanize_seconds(e.seconds_from_now)));
 			m_status_next->setStyleSheet("color: #f0c040; font-weight: 600; font-size: 11pt;");
 		}
 	}
@@ -1355,7 +1477,8 @@ static void next_stream_dock_cleanup(bool frontend_available)
 
 static void on_frontend_event(enum obs_frontend_event event, void *)
 {
-	if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING && g_dock)
+	if ((event == OBS_FRONTEND_EVENT_FINISHED_LOADING || event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED) &&
+	    g_dock)
 		QMetaObject::invokeMethod(g_dock, "on_refresh_sources_clicked", Qt::QueuedConnection);
 	else if (event == OBS_FRONTEND_EVENT_EXIT) {
 		next_stream_dock_cleanup(true);

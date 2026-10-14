@@ -6,7 +6,7 @@ Dynamic Next Stream
 
 ## Version
 
-1.0.6
+1.0.7
 
 ## Category
 
@@ -38,7 +38,7 @@ https://github.com/KSTYER1/dynamic-next-stream
 
 ## Download URL
 
-https://github.com/KSTYER1/dynamic-next-stream/releases/tag/v1.0.6
+https://github.com/KSTYER1/dynamic-next-stream/releases/tag/v1.0.7
 
 ## Overview
 

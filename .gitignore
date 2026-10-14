@@ -7,6 +7,8 @@
 !/cmake
 !/data
 !/src
+!/tests
+!CHANGELOG.md
 !.clang-format
 !.gersemirc
 !.gitignore

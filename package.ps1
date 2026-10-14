@@ -4,12 +4,12 @@
 
 .USAGE
     .\package.ps1
-    .\package.ps1 -Version "1.0.6"
+    .\package.ps1 -Version "1.0.7"
     .\package.ps1 -SkipDeploy
     .\package.ps1 -DeployUserPlugin
 #>
 param(
-    [string]$Version = "1.0.6",
+    [string]$Version = "1.0.7",
     [switch]$DeployUserPlugin,
     [switch]$SkipDeploy
 )
@@ -48,8 +48,13 @@ if (-not $PSBoundParameters.ContainsKey("Version")) {
 }
 
 Write-Host "`n[1/5] Build $Config..." -ForegroundColor Cyan
-Invoke-Native cmake --preset windows-x64
-Invoke-Native cmake --build --preset windows-x64
+Push-Location $Root
+try {
+    Invoke-Native cmake --preset windows-x64
+    Invoke-Native cmake --build --preset windows-x64
+} finally {
+    Pop-Location
+}
 if (-not (Test-Path $Dll)) { throw "Build failed: $Dll not found" }
 
 Write-Host "`n[2/5] Create dist layout..." -ForegroundColor Cyan

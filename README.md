@@ -76,6 +76,19 @@ https://github.com/KSTYER1/dynamic-next-stream
 
 ## Version History
 
+### 1.0.7
+
+- Recover a missing or damaged settings file from its backup without changing
+  either file during loading. If neither can be read, show a warning and block
+  automatic saves until the files are restored and OBS is restarted.
+- Update replacement text sources and scene collections even when the selected
+  source name and schedule text remain unchanged.
+- Calculate upcoming streams using calendar days across daylight-saving changes.
+  Nonexistent local start times are skipped; repeated times use standard time.
+- Pause both file exports with a visible warning when their paths refer to the
+  same file. Separate destinations resume exporting automatically.
+- Run packaging from the plugin directory regardless of the caller's directory.
+
 ### 1.0.6
 
 - Changed Discord TXT Sunday/Monday starts to use the current week for the

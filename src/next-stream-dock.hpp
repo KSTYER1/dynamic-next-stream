@@ -81,10 +81,15 @@ private:
 
 	bool m_loading = false;
 	bool m_shutdown = false;
+	bool m_settings_writable = true;
+	bool m_recovered_from_backup = false;
+	bool m_export_conflict = false;
 
 	// Sticky top
 	QLabel *m_status_clock = nullptr;
 	QLabel *m_status_next = nullptr;
+	QLabel *m_settings_warning = nullptr;
+	QLabel *m_export_warning = nullptr;
 	QPlainTextEdit *m_preview = nullptr;
 	QPushButton *m_preview_copy_btn = nullptr;
 
@@ -139,6 +144,7 @@ private:
 
 	QString m_last_obs_text;
 	QString m_last_obs_target;
+	QString m_last_obs_uuid;
 	QString m_last_file_text;
 	QString m_last_file_path;
 	QString m_last_discord_file_text;
